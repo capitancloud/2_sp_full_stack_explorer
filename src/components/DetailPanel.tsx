@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { KnowledgeNode, categories } from '@/data/knowledgeData';
-import { X, AlertCircle, Link2, Lightbulb, Target } from 'lucide-react';
+import { X, AlertCircle, Link2, Lightbulb, Target, Play } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import DataFlow from './DataFlow';
 
 interface DetailPanelProps {
   node: KnowledgeNode | null;
@@ -9,39 +11,78 @@ interface DetailPanelProps {
 }
 
 const DetailPanel = ({ node, onClose }: DetailPanelProps) => {
+  const [showDataFlow, setShowDataFlow] = useState(false);
+  
   if (!node) return null;
 
   const category = categories[node.category];
+  
+  // Mostra il pulsante per il flusso di dati solo per nodi rilevanti
+  const showDataFlowButton = ['frontend', 'backend', 'api', 'database'].includes(node.id);
 
   return (
-    <AnimatePresence>
-      {node && (
-        <motion.div
-          initial={{ x: '100%', opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          exit={{ x: '100%', opacity: 0 }}
-          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-          className="fixed right-0 top-0 h-full w-full max-w-md glass-panel border-l border-border/50 z-30"
-        >
-          <ScrollArea className="h-full">
-            <div className="p-6">
-              {/* Header */}
-              <div className="flex items-start justify-between mb-6">
-                <div>
-                  <span className={`text-xs font-medium uppercase tracking-wider text-${node.category}`}>
-                    {category.name}
-                  </span>
-                  <h2 className="text-2xl font-display font-bold text-foreground mt-1">
-                    {node.name}
-                  </h2>
+    <>
+      <AnimatePresence>
+        {showDataFlow && (
+          <DataFlow 
+            isVisible={showDataFlow} 
+            onComplete={() => setShowDataFlow(false)}
+          />
+        )}
+      </AnimatePresence>
+      
+      <AnimatePresence>
+        {node && (
+          <motion.div
+            initial={{ x: '100%', opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: '100%', opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            className="fixed right-0 top-0 h-full w-full max-w-md glass-panel border-l border-border/50 z-30"
+          >
+            <ScrollArea className="h-full">
+              <div className="p-6">
+                {/* Header */}
+                <div className="flex items-start justify-between mb-6">
+                  <div>
+                    <span className={`text-xs font-medium uppercase tracking-wider text-${node.category}`}>
+                      {category.name}
+                    </span>
+                    <h2 className="text-2xl font-display font-bold text-foreground mt-1">
+                      {node.name}
+                    </h2>
+                  </div>
+                  <button
+                    onClick={onClose}
+                    className="p-2 rounded-lg hover:bg-secondary/50 transition-colors"
+                  >
+                    <X className="w-5 h-5 text-muted-foreground" />
+                  </button>
                 </div>
-                <button
-                  onClick={onClose}
-                  className="p-2 rounded-lg hover:bg-secondary/50 transition-colors"
-                >
-                  <X className="w-5 h-5 text-muted-foreground" />
-                </button>
-              </div>
+
+                {/* Data Flow Button */}
+                {showDataFlowButton && (
+                  <motion.button
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    onClick={() => setShowDataFlow(true)}
+                    className="w-full mb-6 glass-panel p-4 rounded-xl border border-primary/20 hover:border-primary/40 transition-all flex items-center gap-3 group"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center group-hover:bg-primary/30 transition-colors">
+                      <Play className="w-5 h-5 text-primary" />
+                    </div>
+                    <div className="flex-1 text-left">
+                      <div className="text-sm font-semibold text-foreground">
+                        Visualizza Flusso di Dati
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Vedi come i dati si muovono attraverso il sistema
+                      </div>
+                    </div>
+                  </motion.button>
+                )}
 
               {/* Description */}
               <div className="mb-6">
@@ -109,11 +150,12 @@ const DetailPanel = ({ node, onClose }: DetailPanelProps) => {
                   </div>
                 </div>
               </div>
-            </div>
-          </ScrollArea>
-        </motion.div>
-      )}
-    </AnimatePresence>
+              </div>
+            </ScrollArea>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 };
 

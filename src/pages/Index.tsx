@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { KnowledgeNode } from '@/data/knowledgeData';
+import { KnowledgeNode, knowledgeNodes } from '@/data/knowledgeData';
 import KnowledgeMap from '@/components/KnowledgeMap';
 import DetailPanel from '@/components/DetailPanel';
 import Sidebar from '@/components/Sidebar';
@@ -8,6 +8,7 @@ const Index = () => {
   const [selectedNode, setSelectedNode] = useState<KnowledgeNode | null>(null);
   const [mode, setMode] = useState<'explore' | 'path' | 'role'>('explore');
   const [highlightedNodes, setHighlightedNodes] = useState<string[]>([]);
+  const [currentView, setCurrentView] = useState<string>('fullstack');
 
   const handleNodeSelect = useCallback((node: KnowledgeNode) => {
     setSelectedNode(node);
@@ -19,6 +20,21 @@ const Index = () => {
 
   const handleRoleSelect = useCallback((areas: string[]) => {
     setHighlightedNodes(areas);
+  }, []);
+
+  const handleStepSelect = useCallback((stepId: string) => {
+    const node = knowledgeNodes.find(n => n.id === stepId);
+    if (node) {
+      setSelectedNode(node);
+    }
+  }, []);
+
+  const handleCategorySelect = useCallback((categoryId: string) => {
+    const node = knowledgeNodes.find(n => n.id === categoryId);
+    if (node) {
+      setCurrentView(categoryId);
+      setSelectedNode(node);
+    }
   }, []);
 
   return (
@@ -36,6 +52,8 @@ const Index = () => {
         onModeChange={setMode}
         onPathSelect={handlePathSelect}
         onRoleSelect={handleRoleSelect}
+        onStepSelect={handleStepSelect}
+        onCategorySelect={handleCategorySelect}
       />
 
       {/* Main Content */}
@@ -43,6 +61,8 @@ const Index = () => {
         <KnowledgeMap
           onNodeSelect={handleNodeSelect}
           highlightedNodes={highlightedNodes}
+          initialView={currentView}
+          onViewChange={setCurrentView}
         />
       </main>
 

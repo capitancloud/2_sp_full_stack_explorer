@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { learningPaths, roles, categories, CategoryType } from '@/data/knowledgeData';
 import { 
   Compass, Route, Users, ChevronRight, ChevronDown,
   Monitor, Server, Database, Cloud, Shield, TestTube, GitBranch
 } from 'lucide-react';
+import PathTimeline from './PathTimeline';
+import { arraysEqual } from '@/utils/arrayUtils';
 
 const categoryIcons: Record<CategoryType, React.ComponentType<{ className?: string }>> = {
   central: Compass,
@@ -22,17 +24,50 @@ interface SidebarProps {
   onModeChange: (mode: 'explore' | 'path' | 'role') => void;
   onPathSelect: (path: string[]) => void;
   onRoleSelect: (areas: string[]) => void;
+  onStepSelect?: (stepId: string) => void;
+  onCategorySelect?: (categoryId: string) => void;
 }
 
-const Sidebar = ({ mode, onModeChange, onPathSelect, onRoleSelect }: SidebarProps) => {
+const Sidebar = ({ mode, onModeChange, onPathSelect, onRoleSelect, onStepSelect, onCategorySelect }: SidebarProps) => {
   const [expandedPath, setExpandedPath] = useState<string | null>(null);
   const [expandedRole, setExpandedRole] = useState<string | null>(null);
+  const [selectedPathSteps, setSelectedPathSteps] = useState<string[]>([]);
 
-  const modes = [
+  const modes = useMemo(() => [
     { id: 'explore' as const, name: 'Esplorazione', icon: Compass, description: 'Naviga liberamente' },
     { id: 'path' as const, name: 'Percorsi Guidati', icon: Route, description: 'Segui un percorso' },
     { id: 'role' as const, name: 'Per Ruolo', icon: Users, description: 'Focus su un ruolo' },
-  ];
+  ], []);
+
+  const mainCategories = useMemo(() => 
+    (Object.keys(categories) as CategoryType[]).filter(c => c !== 'central'),
+    []
+  );
+
+  const handleModeChange = useCallback((newMode: 'explore' | 'path' | 'role') => {
+    onModeChange(newMode);
+    if (newMode === 'explore') {
+      onPathSelect([]);
+      onRoleSelect([]);
+    }
+  }, [onModeChange, onPathSelect, onRoleSelect]);
+
+  const handlePathToggle = useCallback((pathId: string, pathSteps: string[]) => {
+    const isExpanded = expandedPath === pathId;
+    setExpandedPath(isExpanded ? null : pathId);
+    if (!isExpanded) {
+      setSelectedPathSteps(pathSteps);
+      onPathSelect(pathSteps);
+    } else {
+      setSelectedPathSteps([]);
+      onPathSelect([]);
+    }
+  }, [expandedPath, onPathSelect]);
+
+  const handlePathSelect = useCallback((pathSteps: string[]) => {
+    setSelectedPathSteps(pathSteps);
+    onPathSelect(pathSteps);
+  }, [onPathSelect]);
 
   return (
     <div className="w-72 h-full glass-panel border-r border-border/50 flex flex-col">
@@ -59,13 +94,7 @@ const Sidebar = ({ mode, onModeChange, onPathSelect, onRoleSelect }: SidebarProp
             return (
               <button
                 key={m.id}
-                onClick={() => {
-                  onModeChange(m.id);
-                  if (m.id === 'explore') {
-                    onPathSelect([]);
-                    onRoleSelect([]);
-                  }
-                }}
+                onClick={() => handleModeChange(m.id)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-left
                   ${isActive 
                     ? 'bg-primary/10 text-primary border border-primary/20' 
@@ -92,57 +121,78 @@ const Sidebar = ({ mode, onModeChange, onPathSelect, onRoleSelect }: SidebarProp
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="space-y-2"
+              className="space-y-4"
             >
-              <p className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">
-                Percorsi Disponibili
-              </p>
-              {learningPaths.map(path => (
-                <div key={path.id} className="space-y-1">
-                  <button
-                    onClick={() => {
-                      setExpandedPath(expandedPath === path.id ? null : path.id);
-                      onPathSelect(path.steps);
-                    }}
-                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all text-left
-                      ${expandedPath === path.id
-                        ? 'bg-primary/10 text-primary'
-                        : 'hover:bg-secondary/50 text-foreground'
-                      }`}
-                  >
-                    <span className="text-sm font-medium">{path.name}</span>
-                    {expandedPath === path.id ? (
-                      <ChevronDown className="w-4 h-4" />
-                    ) : (
-                      <ChevronRight className="w-4 h-4" />
-                    )}
-                  </button>
-                  <AnimatePresence>
-                    {expandedPath === path.id && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        className="overflow-hidden"
+              {/* Timeline del percorso selezionato */}
+              {selectedPathSteps.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <PathTimeline
+                    pathSteps={selectedPathSteps}
+                    onStepSelect={onStepSelect}
+                    autoPlay={false}
+                  />
+                </motion.div>
+              )}
+
+              {/* Lista di tutti i percorsi */}
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">
+                  {selectedPathSteps.length > 0 ? 'Altri Percorsi' : 'Percorsi Disponibili'}
+                </p>
+                {learningPaths.map(path => {
+                  const isSelected = selectedPathSteps.length > 0 && 
+                    arraysEqual(path.steps, selectedPathSteps);
+                  
+                  return (
+                    <div key={path.id} className="space-y-1 mb-2">
+                      <button
+                        onClick={() => handlePathToggle(path.id, path.steps)}
+                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all text-left
+                          ${isSelected
+                            ? 'bg-primary/20 text-primary border border-primary/30'
+                            : expandedPath === path.id
+                            ? 'bg-primary/10 text-primary'
+                            : 'hover:bg-secondary/50 text-foreground'
+                          }`}
                       >
-                        <p className="text-xs text-muted-foreground px-3 py-2">
-                          {path.description}
-                        </p>
-                        <div className="px-3 py-2 space-y-1">
-                          {path.steps.map((step, idx) => (
-                            <div key={step} className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span className="w-5 h-5 rounded-full bg-primary/20 text-primary flex items-center justify-center text-[10px] font-medium">
-                                {idx + 1}
-                              </span>
-                              {step}
-                            </div>
-                          ))}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              ))}
+                        <span className="text-sm font-medium">{path.name}</span>
+                        {expandedPath === path.id ? (
+                          <ChevronDown className="w-4 h-4" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4" />
+                        )}
+                      </button>
+                      <AnimatePresence>
+                        {expandedPath === path.id && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="overflow-hidden"
+                          >
+                            <p className="text-xs text-muted-foreground px-3 py-2">
+                              {path.description}
+                            </p>
+                            {!isSelected && (
+                              <button
+                                onClick={() => handlePathSelect(path.steps)}
+                                className="w-full mx-3 mb-2 px-3 py-1.5 text-xs font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                              >
+                                Seleziona questo percorso
+                              </button>
+                            )}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  );
+                })}
+              </div>
             </motion.div>
           )}
 
@@ -207,19 +257,28 @@ const Sidebar = ({ mode, onModeChange, onPathSelect, onRoleSelect }: SidebarProp
               <p className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">
                 Aree Principali
               </p>
-              {(Object.keys(categories) as CategoryType[])
-                .filter(c => c !== 'central')
-                .map(cat => {
+              {mainCategories.map(cat => {
                   const category = categories[cat];
                   const Icon = categoryIcons[cat];
+                  // Trova il nodo principale per questa categoria (es. 'frontend', 'backend', etc.)
+                  const categoryNodeId = cat;
+                  
                   return (
-                    <div
+                    <motion.button
                       key={cat}
-                      className="flex items-center gap-3 px-3 py-2 rounded-lg bg-secondary/30"
+                      onClick={() => {
+                        if (onCategorySelect) {
+                          onCategorySelect(categoryNodeId);
+                        }
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-all text-left group"
+                      whileHover={{ scale: 1.02, x: 4 }}
+                      whileTap={{ scale: 0.98 }}
                     >
-                      <Icon className={`w-4 h-4 text-${cat}`} />
-                      <span className="text-sm text-foreground">{category.name}</span>
-                    </div>
+                      <Icon className={`w-4 h-4 text-${cat} flex-shrink-0`} />
+                      <span className="text-sm text-foreground font-medium flex-1">{category.name}</span>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </motion.button>
                   );
                 })}
             </motion.div>

@@ -1,12 +1,13 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { knowledgeNodes, categories, CategoryType, KnowledgeNode } from '@/data/knowledgeData';
+import { knowledgeNodes, categories, KnowledgeNode } from '@/data/knowledgeData';
 import { 
   Globe, Monitor, Server, Database, Cloud, Shield, TestTube, GitBranch,
-  ZoomIn, ZoomOut, Home
+  ChevronRight, ArrowLeft
 } from 'lucide-react';
 import NodeCard from './NodeCard';
-import ConnectionLines from './ConnectionLines';
+import CategoryCard from './CategoryCard';
+import { useKnowledgeNodes } from '@/hooks/useKnowledgeNodes';
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Globe, Monitor, Server, Database, Cloud, Shield, TestTube, GitBranch,
@@ -15,149 +16,224 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
 interface KnowledgeMapProps {
   onNodeSelect: (node: KnowledgeNode) => void;
   highlightedNodes?: string[];
+  initialView?: string;
+  onViewChange?: (viewId: string) => void;
 }
 
-const KnowledgeMap = ({ onNodeSelect, highlightedNodes = [] }: KnowledgeMapProps) => {
-  const [zoom, setZoom] = useState(1);
-  const [currentView, setCurrentView] = useState<string>('fullstack');
-
-  const centralNode = knowledgeNodes.find(n => n.id === 'fullstack')!;
-  const currentNode = knowledgeNodes.find(n => n.id === currentView)!;
+const KnowledgeMap = ({ onNodeSelect, highlightedNodes = [], initialView, onViewChange }: KnowledgeMapProps) => {
+  const [currentView, setCurrentView] = useState<string>(initialView || 'fullstack');
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   
-  const childNodes = currentNode?.children
-    ? knowledgeNodes.filter(n => currentNode.children?.includes(n.id))
-    : [];
+  const { getNodeById, getChildNodes, getRelatedNodes } = useKnowledgeNodes();
+  
+  // Sincronizza la vista quando cambia dall'esterno
+  useEffect(() => {
+    if (initialView && initialView !== currentView) {
+      setCurrentView(initialView);
+    }
+  }, [initialView, currentView]);
+  
+  const handleViewChange = useCallback((viewId: string) => {
+    setCurrentView(viewId);
+    onViewChange?.(viewId);
+  }, [onViewChange]);
 
-  const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.2, 1.5));
-  const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.2, 0.5));
-  const handleReset = () => {
-    setZoom(1);
-    setCurrentView('fullstack');
-  };
+  // Memoizza i nodi per evitare ricalcoli
+  const centralNode = useMemo(() => getNodeById('fullstack')!, [getNodeById]);
+  const currentNode = useMemo(() => getNodeById(currentView)!, [getNodeById, currentView]);
+  const childNodes = useMemo(() => getChildNodes(currentView), [getChildNodes, currentView]);
+  const relatedNodeIds = useMemo(
+    () => getRelatedNodes(hoveredNodeId),
+    [getRelatedNodes, hoveredNodeId]
+  );
 
   const handleNodeClick = useCallback((node: KnowledgeNode) => {
     onNodeSelect(node);
     if (node.children && node.children.length > 0) {
-      setCurrentView(node.id);
+      handleViewChange(node.id);
     }
-  }, [onNodeSelect]);
+  }, [onNodeSelect, handleViewChange]);
 
-  const getNodePosition = (index: number, total: number) => {
-    const angle = (index / total) * 2 * Math.PI - Math.PI / 2;
-    const radius = 220;
-    return {
-      x: Math.cos(angle) * radius,
-      y: Math.sin(angle) * radius,
-    };
-  };
+  const handleBack = useCallback(() => {
+    handleViewChange('fullstack');
+  }, [handleViewChange]);
 
-  const isHighlighted = (nodeId: string) => 
-    highlightedNodes.length === 0 || highlightedNodes.includes(nodeId);
+  const isHighlighted = useCallback((nodeId: string) => 
+    highlightedNodes.length === 0 || highlightedNodes.includes(nodeId),
+    [highlightedNodes]
+  );
+
+  const isRelated = useCallback((nodeId: string) => 
+    hoveredNodeId !== null && relatedNodeIds.includes(nodeId),
+    [hoveredNodeId, relatedNodeIds]
+  );
+
+  const isMainView = currentView === 'fullstack';
 
   return (
-    <div className="relative w-full h-full overflow-hidden">
-      {/* Zoom Controls */}
-      <div className="absolute top-4 right-4 z-20 flex flex-col gap-2">
-        <button
-          onClick={handleZoomIn}
-          className="glass-panel p-2 hover:bg-secondary/50 transition-colors"
-        >
-          <ZoomIn className="w-5 h-5 text-foreground" />
-        </button>
-        <button
-          onClick={handleZoomOut}
-          className="glass-panel p-2 hover:bg-secondary/50 transition-colors"
-        >
-          <ZoomOut className="w-5 h-5 text-foreground" />
-        </button>
-        <button
-          onClick={handleReset}
-          className="glass-panel p-2 hover:bg-secondary/50 transition-colors"
-        >
-          <Home className="w-5 h-5 text-foreground" />
-        </button>
+    <div className="relative w-full h-full overflow-auto">
+      {/* Header */}
+      <div className="sticky top-0 z-10 backdrop-blur-xl bg-background/80 border-b border-border/50">
+        <div className="container mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              {!isMainView && (
+                <motion.button
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  onClick={handleBack}
+                  className="glass-panel p-2 hover:bg-secondary/50 transition-colors"
+                >
+                  <ArrowLeft className="w-5 h-5 text-foreground" />
+                </motion.button>
+              )}
+              <div>
+                <h1 className="text-2xl font-display font-bold text-foreground">
+                  {isMainView ? 'Full Stack Explorer' : currentNode.name}
+                </h1>
+                {!isMainView && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {currentNode.description}
+                  </p>
+                )}
+              </div>
+            </div>
+            {isMainView && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="flex items-center gap-2 glass-panel px-4 py-2"
+              >
+                <Globe className="w-5 h-5 text-central" />
+                <span className="text-sm font-medium">{childNodes.length} categorie disponibili</span>
+              </motion.div>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Breadcrumb */}
-      {currentView !== 'fullstack' && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="absolute top-4 left-4 z-20"
-        >
-          <button
-            onClick={() => setCurrentView('fullstack')}
-            className="glass-panel px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
-          >
-            <Home className="w-4 h-4" />
-            Torna alla mappa principale
-          </button>
-        </motion.div>
-      )}
-
-      {/* Map Container */}
-      <motion.div
-        className="absolute inset-0 flex items-center justify-center"
-        style={{ scale: zoom }}
-        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-      >
-        <div className="relative" style={{ width: '600px', height: '600px' }}>
-          {/* Connection Lines */}
-          <ConnectionLines
-            centralNode={currentNode}
-            childNodes={childNodes}
-            getPosition={getNodePosition}
-          />
-
-          {/* Central Node */}
+      {/* Content */}
+      <div className="container mx-auto px-6 py-8">
+        {isMainView ? (
+          /* Main View - Category Cards */
           <motion.div
-            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10"
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 max-w-7xl mx-auto"
           >
-            <NodeCard
-              node={currentNode}
-              isCentral
-              isHighlighted={isHighlighted(currentNode.id)}
-              onClick={() => onNodeSelect(currentNode)}
-            />
-          </motion.div>
+            {/* Central Node Card - Featured */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0 }}
+              className="md:col-span-2 lg:col-span-2 xl:col-span-2"
+            >
+              <motion.button
+                onClick={() => handleNodeClick(centralNode)}
+                className="w-full h-full glass-panel p-8 rounded-2xl border-2 border-central/30 hover:border-central/60 transition-all duration-300 group relative overflow-hidden"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity" 
+                     style={{ background: 'linear-gradient(to bottom right, hsl(var(--central) / 0.1), transparent)' }} />
+                <div className="relative z-10 flex flex-col items-center justify-center text-center gap-4">
+                  <div className="w-20 h-20 rounded-full bg-central/20 flex items-center justify-center group-hover:bg-central/30 transition-colors">
+                    <Globe className="w-10 h-10 text-central" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-display font-bold text-foreground mb-2">
+                      {centralNode.name}
+                    </h2>
+                    <p className="text-muted-foreground text-sm leading-relaxed">
+                      {centralNode.description}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 text-central text-sm font-medium mt-2">
+                    <span>Esplora le categorie</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </div>
+                </div>
+              </motion.button>
+            </motion.div>
 
-          {/* Child Nodes */}
-          <AnimatePresence mode="wait">
+            {/* Category Cards */}
             {childNodes.map((node, index) => {
-              const pos = getNodePosition(index, childNodes.length);
+              const category = categories[node.category];
+              const Icon = iconMap[category.icon];
+              
               return (
-                <motion.div
+                <CategoryCard
                   key={node.id}
-                  className="absolute left-1/2 top-1/2 z-10"
-                  initial={{ opacity: 0, scale: 0, x: 0, y: 0 }}
-                  animate={{ 
-                    opacity: 1, 
-                    scale: 1, 
-                    x: pos.x - 80, 
-                    y: pos.y - 50 
-                  }}
-                  exit={{ opacity: 0, scale: 0 }}
-                  transition={{ 
-                    type: 'spring', 
-                    stiffness: 200, 
-                    damping: 20,
-                    delay: index * 0.05 
-                  }}
-                >
-                  <NodeCard
-                    node={node}
-                    isHighlighted={isHighlighted(node.id)}
-                    onClick={() => handleNodeClick(node)}
-                  />
-                </motion.div>
+                  node={node}
+                  icon={Icon}
+                  highlighted={isHighlighted(node.id)}
+                  related={isRelated(node.id)}
+                  index={index}
+                  onMouseEnter={() => setHoveredNodeId(node.id)}
+                  onMouseLeave={() => setHoveredNodeId(null)}
+                  onClick={() => handleNodeClick(node)}
+                />
               );
             })}
-          </AnimatePresence>
-        </div>
-      </motion.div>
+          </motion.div>
+        ) : (
+          /* Detail View - Subcategory Grid */
+          <motion.div
+            key={currentView}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ 
+              duration: 0.4,
+              ease: [0.4, 0, 0.2, 1]
+            }}
+            className="max-w-6xl mx-auto"
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <AnimatePresence mode="popLayout">
+                {childNodes.map((node, index) => {
+                  const highlighted = isHighlighted(node.id);
+                  const related = isRelated(node.id);
+                  return (
+                    <motion.div
+                      key={node.id}
+                      layout
+                      initial={{ opacity: 0, scale: 0.8, y: 20 }}
+                      animate={{ 
+                        opacity: highlighted ? 1 : 0.6, 
+                        scale: related ? 1.05 : 1,
+                        y: 0
+                      }}
+                      exit={{ 
+                        opacity: 0, 
+                        scale: 0.8,
+                        transition: { duration: 0.2 }
+                      }}
+                      transition={{ 
+                        delay: index * 0.05,
+                        layout: { duration: 0.3, ease: [0.4, 0, 0.2, 1] },
+                        type: "spring",
+                        stiffness: 300,
+                        damping: 30
+                      }}
+                      whileHover={{ 
+                        scale: 1.05,
+                        transition: { duration: 0.2 }
+                      }}
+                    >
+                      <NodeCard
+                        node={node}
+                        isHighlighted={highlighted}
+                        onClick={() => handleNodeClick(node)}
+                      />
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            </div>
+          </motion.div>
+        )}
+      </div>
     </div>
   );
 };
