@@ -161,17 +161,7 @@ const LoginScreen = () => {
                 'Accedi'
               )}
             </Button>
-          </motion.form>
-
-          {/* Footer */}
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.6 }}
-            className="text-center text-xs text-muted-foreground mt-6"
-          >
-            Il codice è protetto con crittografia SHA-256
-          </motion.p>
+        </motion.form>
         </div>
       </motion.div>
     </div>
