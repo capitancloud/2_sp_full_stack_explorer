@@ -64,8 +64,7 @@ const CategoryCard = ({
           }
         }}
         style={{
-          background: highlighted ? gradient : undefined,
-          ringColor: related ? `hsl(var(--${node.category}))` : undefined
+          background: highlighted ? gradient : undefined
         }}
       >
         {/* Pulse ring per nodi correlati */}
