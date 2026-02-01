@@ -1,10 +1,14 @@
 import { useState, useCallback } from 'react';
 import { KnowledgeNode, knowledgeNodes } from '@/data/knowledgeData';
+import { useAuth } from '@/contexts/AuthContext';
 import KnowledgeMap from '@/components/KnowledgeMap';
 import DetailPanel from '@/components/DetailPanel';
 import Sidebar from '@/components/Sidebar';
+import LoginScreen from '@/components/LoginScreen';
+import { Loader2 } from 'lucide-react';
 
 const Index = () => {
+  const { isAuthenticated, isLoading } = useAuth();
   const [selectedNode, setSelectedNode] = useState<KnowledgeNode | null>(null);
   const [mode, setMode] = useState<'explore' | 'path' | 'role'>('explore');
   const [highlightedNodes, setHighlightedNodes] = useState<string[]>([]);
@@ -36,6 +40,20 @@ const Index = () => {
       setSelectedNode(node);
     }
   }, []);
+
+  // Show loading spinner while checking auth
+  if (isLoading) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Show login screen if not authenticated
+  if (!isAuthenticated) {
+    return <LoginScreen />;
+  }
 
   return (
     <div className="h-screen w-screen flex overflow-hidden bg-background">

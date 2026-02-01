@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import PathTimeline from './PathTimeline';
 import { arraysEqual } from '@/utils/arrayUtils';
+import LogoutButton from './LogoutButton';
 
 const categoryIcons: Record<CategoryType, React.ComponentType<{ className?: string }>> = {
   central: Compass,
@@ -287,10 +288,11 @@ const Sidebar = ({ mode, onModeChange, onPathSelect, onRoleSelect, onStepSelect,
       </div>
 
       {/* Footer */}
-      <div className="p-4 border-t border-border/30">
-        <p className="text-xs text-muted-foreground text-center">
+      <div className="p-4 border-t border-border/30 flex items-center justify-between">
+        <p className="text-xs text-muted-foreground">
           Clicca sui nodi per esplorare
         </p>
+        <LogoutButton />
       </div>
     </div>
   );

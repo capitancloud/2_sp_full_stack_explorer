@@ -24,7 +24,7 @@ const PathTimeline = ({ pathSteps, onStepSelect, autoPlay = false }: PathTimelin
     const timer = setTimeout(() => {
       setCurrentStep(prev => {
         const next = Math.min(prev + 1, steps.length - 1);
-        setCompletedSteps(prev => new Set([...prev, prev]));
+        setCompletedSteps(prevSet => new Set([...prevSet, prev]));
         return next;
       });
     }, 2000);
