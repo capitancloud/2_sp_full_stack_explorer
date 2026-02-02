@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
-import { Lock, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import superProgrammatoreLogo from '@/assets/super-programmatore-logo.png';
 
 const LoginScreen = () => {
   const { login } = useAuth();
@@ -80,15 +81,19 @@ const LoginScreen = () => {
         className="relative z-10 w-full max-w-md mx-4"
       >
         <div className="glass-panel border border-border/50 rounded-3xl p-8 backdrop-blur-xl">
-          {/* Header */}
+          {/* Header with Logo */}
           <div className="text-center mb-8">
             <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
               transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-              className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center border border-primary/20"
+              className="mx-auto mb-6"
             >
-              <Lock className="w-10 h-10 text-primary" />
+              <img 
+                src={superProgrammatoreLogo} 
+                alt="Super Programmatore Logo" 
+                className="w-48 h-auto mx-auto drop-shadow-2xl"
+              />
             </motion.div>
             <motion.h1
               initial={{ opacity: 0, y: 10 }}
